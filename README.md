@@ -79,3 +79,4 @@ tscigraph gdp lb ub mdate, by(country) citype(rarea)
 ## Author
 
 **Emanuele Clemente**
+Feel free to reach out to document any issue and/or request improvements
