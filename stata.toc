@@ -1,0 +1,6 @@
+v 3
+d tscigraph: Time series graphs with confidence intervals and panel support
+d
+d Distribution-Date: 20260906
+d
+p tscigraph
