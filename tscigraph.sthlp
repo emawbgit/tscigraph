@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  06sep2026}{...}
+{* *! version 1.2.0  06sep2026}{...}
 {title:Title}
 
 {phang}
@@ -21,7 +21,7 @@
 {synoptline}
 {synopt :{opt by(varname)}}generate panel subgraphs or overlay series for each category of {it:varname}{p_end}
 {synopt :{opt citype(string)}}confidence interval display type: {cmd:rcap} (default) or {cmd:rarea}{p_end}
-{synopt :{opt overlay}}overlay all group series on a single plot axis instead of creating separate subgraphs{p_end}
+{synopt :{opt overlay}}overlay all group series on a single plot axis, using group labels in the legend and excluding CI keys{p_end}
 {synopt :{it:twoway_options}}any options allowed by {help twoway}{p_end}
 {synoptline}
 
@@ -35,7 +35,8 @@ bounded by {it:lb} (lower bound) and {it:ub} (upper bound).
 
 {pstd}
 If {it:timevar} is not specified, {cmd:tscigraph} automatically uses the time variable set via {helpb tsset}
-or {helpb xtset}. If no time variable is configured, observation indices ({cmd:_n}) are used.
+or {helpb xtset}. If no time variable is configured, observation indices ({cmd:_n}) are used. Confidence interval
+keys ({it:lb}/{it:ub}) are automatically omitted from the legend.
 
 
 {marker installation}{...}
@@ -60,6 +61,7 @@ To install {cmd:tscigraph} directly from GitHub in Stata:
 
 {phang}
 {opt overlay} overlays all group/panel series on a single plot axis rather than creating separate subgraphs per group.
+Legend entries display each level or value label of {it:varname} and omit confidence interval keys.
 
 {phang}
 {it:twoway_options} options passed directly to {helpb twoway}, such as title, axis labels, legend, or graph schemes.

@@ -2,6 +2,8 @@
 
 `tscigraph` is a Stata package for creating time series plots that combine main variable estimates with lower and upper confidence interval bounds, with full support for panel data subgraphs (`by()`), overlaying group series on a single plot axis (`overlay`), and custom interval display types (`rcap` or `rarea`).
 
+CI bounds (`lb`/`ub`) are automatically hidden from legend keys, while overlaid series display clean group labels corresponding to the levels or value labels of the `by()` variable.
+
 ---
 
 ## Installation
@@ -35,7 +37,7 @@ tscigraph yvar lb ub [timevar] [if] [in] [, by(varname) citype(string) overlay t
 | :--- | :--- |
 | `by(varname)` | Generates series for each distinct value/category of `varname`. |
 | `citype(string)` | Confidence interval display style: `rcap` (capped spikes, default) or `rarea` (shaded range area). |
-| `overlay` | Overlays all group series on a single plot axis instead of creating separate panel subgraphs. |
+| `overlay` | Overlays all group series on a single plot axis, using level value labels in the legend while excluding CI keys. |
 | `twoway_options` | Any additional options supported by Stata's `twoway` command (e.g. `title()`, `xtitle()`, `ytitle()`, `scheme()`, `legend()`). |
 
 ---
@@ -52,7 +54,7 @@ generate ub = invest + 15
 * Separate subgraphs for each company
 tscigraph invest lb ub year if company <= 3, by(company)
 
-* Overlay all companies on a single plot axis
+* Overlay companies on a single plot (legend displays Company 1, Company 2, Company 3 without lb/ub)
 tscigraph invest lb ub year if company <= 3, by(company) overlay
 ```
 
@@ -80,4 +82,3 @@ tscigraph gdp lb ub mdate, by(country) overlay citype(rarea)
 ## Author
 
 **Emanuele Clemente**
-Feel free to reach out to document any issue and/or request improvements

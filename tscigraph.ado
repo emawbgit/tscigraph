@@ -1,4 +1,4 @@
-*! version 1.1.1  06sep2026
+*! version 1.2.0  06sep2026
 *! tscigraph: Time series graph with confidence intervals and panel support
 
 program define tscigraph
@@ -56,18 +56,36 @@ program define tscigraph
         capture confirm string variable `by'
         if _rc == 0 local isstr = 1
         
+        local vallab : value label `by'
+        
         local plots ""
+        local legorder ""
+        local keyidx = 1
+        
         foreach lvl of local levels {
             if `isstr' {
                 local cond `"`touse' & `by' == "`lvl'""'
+                local lbl "`lvl'"
             }
             else {
                 local cond "`touse' & `by' == `lvl'"
+                if "`vallab'" != "" {
+                    local lbl : label `vallab' `lvl'
+                }
+                else {
+                    local lbl "`lvl'"
+                }
             }
+            
+            // Plot CI (keyidx) and Line (keyidx+1)
             local plots "`plots' (`citype' `lb' `ub' `timevar' if `cond') (line `yvar' `timevar' if `cond')"
+            
+            local linekey = `keyidx' + 1
+            local legorder `"`legorder' `linekey' "`lbl'""'
+            local keyidx = `keyidx' + 2
         }
         
-        twoway `plots', `options'
+        twoway `plots', legend(order(`legorder')) `options'
     }
     else {
         // Construct by option for native subgraphs
@@ -76,10 +94,13 @@ program define tscigraph
             local byopt "by(`by')"
         }
         
-        // Execute twoway graph
+        // Exclude CI from legend (key 1 = CI, key 2 = line)
+        local ylbl : variable label `yvar'
+        if "`ylbl'" == "" local ylbl "`yvar'"
+        
         twoway (`citype' `lb' `ub' `timevar' if `touse') ///
                (line `yvar' `timevar' if `touse'), ///
-               `byopt' `options'
+               legend(order(2 "`ylbl'")) `byopt' `options'
     }
 
 end
