@@ -37,6 +37,15 @@ If {it:timevar} is not specified, {cmd:tscigraph} automatically uses the time va
 or {helpb xtset}. If no time variable is configured, observation indices ({cmd:_n}) are used.
 
 
+{marker installation}{...}
+{title:Installation}
+
+{pstd}
+To install {cmd:tscigraph} directly from GitHub in Stata:
+
+{phang2}{cmd:. net install tscigraph, from("https://raw.githubusercontent.com/emawbgit/tscigraph/main") replace}{p_end}
+
+
 {marker options}{...}
 {title:Options}
 
@@ -84,4 +93,4 @@ or {helpb xtset}. If no time variable is configured, observation indices ({cmd:_
 {title:Author}
 
 {pstd}
-tscigraph package developed for Stata 17+.
+Emanuele Clemente
