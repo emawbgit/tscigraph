@@ -1,10 +1,10 @@
-*! version 1.0.0  06sep2026
+*! version 1.1.1  06sep2026
 *! tscigraph: Time series graph with confidence intervals and panel support
 
 program define tscigraph
     version 17.0
     
-    syntax varlist(min=3 max=4 numeric) [if] [in] [, BY(varname) CITYPE(string) *]
+    syntax varlist(min=3 max=4 numeric) [if] [in] [, BY(varname) CITYPE(string) OVERlay *]
     
     tokenize `varlist'
     local yvar `1'
@@ -49,20 +49,35 @@ program define tscigraph
         exit 198
     }
     
-    // Construct by option
-    local byopt ""
-    if "`by'" != "" {
-        local byopt "by(`by')"
+    // Handle overlay option with by()
+    if "`by'" != "" & "`overlay'" != "" {
+        quietly levelsof `by' if `touse', local(levels)
+        local isstr = 0
+        capture confirm string variable `by'
+        if _rc == 0 local isstr = 1
+        
+        local plots ""
+        foreach lvl of local levels {
+            if `isstr' {
+                local cond `"`touse' & `by' == "`lvl'""'
+            }
+            else {
+                local cond "`touse' & `by' == `lvl'"
+            }
+            local plots "`plots' (`citype' `lb' `ub' `timevar' if `cond') (line `yvar' `timevar' if `cond')"
+        }
+        
+        twoway `plots', `options'
     }
-    
-    // Execute twoway graph
-    if "`citype'" == "rcap" {
-        twoway (rcap `lb' `ub' `timevar' if `touse') ///
-               (line `yvar' `timevar' if `touse'), ///
-               `byopt' `options'
-    }
-    else if "`citype'" == "rarea" {
-        twoway (rarea `lb' `ub' `timevar' if `touse') ///
+    else {
+        // Construct by option for native subgraphs
+        local byopt ""
+        if "`by'" != "" {
+            local byopt "by(`by')"
+        }
+        
+        // Execute twoway graph
+        twoway (`citype' `lb' `ub' `timevar' if `touse') ///
                (line `yvar' `timevar' if `touse'), ///
                `byopt' `options'
     }
