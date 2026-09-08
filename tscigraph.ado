@@ -47,7 +47,7 @@ program define tscigraph
     // --- carry metadata across the collapse ---------------------------------
     local tfmt : format `timevar'
     local tlab : variable label `timevar'
-    local vlab : value label `by'
+    if "`by'" != "" local vlab : value label `by'
     local ylab : variable label `yvar'
     if `"`ylab'"' == "" local ylab "`yvar'"
 
