@@ -1,106 +1,126 @@
-*! version 1.2.0  06sep2026
-*! tscigraph: Time series graph with confidence intervals and panel support
+*! version 3.0.0  08sep2026
+*! tscigraph: period means of yvar with confidence intervals, plotted over time
 
 program define tscigraph
-    version 17.0
-    
-    syntax varlist(min=3 max=4 numeric) [if] [in] [, BY(varname) CITYPE(string) OVERlay *]
-    
+    version 15.0
+
+    syntax varlist(min=1 max=2 numeric) [if] [in] ///
+        [, BY(varname) CITYPE(string) OVERlay Level(cilevel) LEGend(passthru) *]
+
     tokenize `varlist'
     local yvar `1'
-    local lb   `2'
-    local ub   `3'
-    local timevar `4'
-    
-    marksample touse
-    
-    // If timevar is omitted, attempt to infer from tsset/xtset or default to _n
+    local timevar `2'
+
+    // --- time variable ------------------------------------------------------
     if "`timevar'" == "" {
         capture tsset
-        if _rc == 0 {
-            local timevar "`r(timevar)'"
-        }
-        else {
-            capture xtset
-            if _rc == 0 {
-                local timevar "`r(timevar)'"
-            }
-        }
-        
+        if _rc capture xtset
+        if !_rc local timevar "`r(timevar)'"
         if "`timevar'" == "" {
-            tempvar _timevar
-            quietly gen `_timevar' = _n if `touse'
-            local timevar "`_timevar'"
-            label variable `_timevar' "Observation"
+            display as error "no timevar specified and data are not tsset or xtset"
+            exit 111
         }
-        else {
-            quietly replace `touse' = 0 if missing(`timevar')
-        }
-    }
-    
-    // Default CI type is rcap
-    if "`citype'" == "" {
-        local citype "rcap"
-    }
-    local citype = lower("`citype'")
-    
-    if "`citype'" != "rcap" & "`citype'" != "rarea" {
-        display as error "citype() must be either rcap or rarea"
-        exit 198
-    }
-    
-    // Handle overlay option with by()
-    if "`by'" != "" & "`overlay'" != "" {
-        quietly levelsof `by' if `touse', local(levels)
-        local isstr = 0
-        capture confirm string variable `by'
-        if _rc == 0 local isstr = 1
-        
-        local vallab : value label `by'
-        
-        local plots ""
-        local legorder ""
-        local keyidx = 1
-        
-        foreach lvl of local levels {
-            if `isstr' {
-                local cond `"`touse' & `by' == "`lvl'""'
-                local lbl "`lvl'"
-            }
-            else {
-                local cond "`touse' & `by' == `lvl'"
-                if "`vallab'" != "" {
-                    local lbl : label `vallab' `lvl'
-                }
-                else {
-                    local lbl "`lvl'"
-                }
-            }
-            
-            // Plot CI (keyidx) and Line (keyidx+1)
-            local plots "`plots' (`citype' `lb' `ub' `timevar' if `cond') (line `yvar' `timevar' if `cond')"
-            
-            local linekey = `keyidx' + 1
-            local legorder `"`legorder' `linekey' "`lbl'""'
-            local keyidx = `keyidx' + 2
-        }
-        
-        twoway `plots', legend(order(`legorder')) `options'
-    }
-    else {
-        // Construct by option for native subgraphs
-        local byopt ""
-        if "`by'" != "" {
-            local byopt "by(`by')"
-        }
-        
-        // Exclude CI from legend (key 1 = CI, key 2 = line)
-        local ylbl : variable label `yvar'
-        if "`ylbl'" == "" local ylbl "`yvar'"
-        
-        twoway (`citype' `lb' `ub' `timevar' if `touse') ///
-               (line `yvar' `timevar' if `touse'), ///
-               legend(order(2 "`ylbl'")) `byopt' `options'
     }
 
+    marksample touse
+    markout `touse' `timevar' `by', strok
+    quietly count if `touse'
+    if r(N) == 0 {
+        display as error "no observations"
+        exit 2000
+    }
+
+    if "`overlay'" != "" & "`by'" == "" {
+        display as error "overlay requires by()"
+        exit 198
+    }
+
+    // --- citype -------------------------------------------------------------
+    if "`citype'" == "" local citype "rcap"
+    local citype = lower("`citype'")
+    if !inlist("`citype'", "rcap", "rarea") {
+        display as error "citype() must be rcap or rarea"
+        exit 198
+    }
+    if "`citype'" == "rarea" local cistyle "fintensity(30) lwidth(none)"
+
+    // --- carry metadata across the collapse ---------------------------------
+    local tfmt : format `timevar'
+    local tlab : variable label `timevar'
+    local vlab : value label `by'
+    local ylab : variable label `yvar'
+    if `"`ylab'"' == "" local ylab "`yvar'"
+
+    preserve
+    quietly keep if `touse'
+
+    // --- mean and interval per period ---------------------------------------
+    tempvar se n lb ub
+    collapse (mean) `yvar' (semean) `se' = `yvar' (count) `n' = `yvar', ///
+        by(`timevar' `by')
+
+    quietly {
+        gen double `lb' = `yvar' - invttail(`n'-1, (100-`level')/200) * `se'
+        gen double `ub' = `yvar' + invttail(`n'-1, (100-`level')/200) * `se'
+        count if !missing(`lb')
+    }
+    if r(N) == 0 {
+        display as error ///
+            "no period has more than one observation; a mean-based interval cannot be computed"
+        exit 2000
+    }
+    local ok = r(N)
+    quietly count
+    if `ok' < r(N) ///
+        display as text "note: no interval for " r(N)-`ok' " period(s) with a single observation"
+
+    format `timevar' `tfmt'
+    if `"`tlab'"' != "" label variable `timevar' `"`tlab'"'
+    if "`vlab'" != "" label values `by' `vlab'
+    label variable `yvar' `"Mean `ylab'"'
+
+    // --- overlay ------------------------------------------------------------
+    if "`overlay'" != "" {
+        quietly levelsof `by', local(levels)
+        capture confirm string variable `by'
+        local isstr = (_rc == 0)
+
+        local g 0
+        foreach lvl of local levels {
+            local ++g
+            if `isstr' {
+                local cond `"`by' == "`lvl'""'
+                local lbl`g' "`lvl'"
+            }
+            else {
+                local cond "`by' == `lvl'"
+                local lbl`g' "`lvl'"
+                if "`vlab'" != "" local lbl`g' : label `vlab' `lvl'
+            }
+            // bands first, lines after: no group's series is painted over
+            local cis `"`cis' (`citype' `lb' `ub' `timevar' if `cond', pstyle(p`g') `cistyle')"'
+            local lns `"`lns' (line `yvar' `timevar' if `cond', pstyle(p`g'))"'
+        }
+
+        if `"`legend'"' == "" {
+            forvalues j = 1/`g' {
+                local k = `g' + `j'
+                local order `"`order' `k' "`lbl`j''""'
+            }
+            local legend `"legend(order(`order'))"'
+        }
+        twoway `cis' `lns', `legend' `options'
+        restore
+        exit
+    }
+
+    // --- single series, or native by() subgraphs -----------------------------
+    if "`by'" != "" local byopt "by(`by')"
+    if `"`legend'"' == "" local legend `"legend(order(2 "Mean `ylab'"))"'
+
+    twoway (`citype' `lb' `ub' `timevar', pstyle(p1) `cistyle') ///
+           (line `yvar' `timevar', pstyle(p1)) ///
+           , `legend' `byopt' `options'
+
+    restore
 end

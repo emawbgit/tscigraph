@@ -1,6 +1,6 @@
 v 3
-d tscigraph: Time series graphs with confidence intervals and panel support
+d tscigraph: Period means with confidence intervals, plotted over time
 d
-d Distribution-Date: 20260906
+d Distribution-Date: 20260908
 d
 p tscigraph

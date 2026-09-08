@@ -1,9 +1,13 @@
 {smcl}
-{* *! version 1.2.0  06sep2026}{...}
+{* *! version 3.0.0  08sep2026}{...}
+{vieweralsosee "[R] ci" "help ci"}{...}
+{vieweralsosee "[TS] tsline" "help tsline"}{...}
+{vieweralsosee "[XT] xtline" "help xtline"}{...}
+{vieweralsosee "[D] collapse" "help collapse"}{...}
 {title:Title}
 
 {phang}
-{bf:tscigraph} {hline 2} Time series graph with confidence intervals and panel support
+{bf:tscigraph} {hline 2} Period means with confidence intervals, plotted over time
 
 
 {marker syntax}{...}
@@ -11,18 +15,18 @@
 
 {p 8 17 2}
 {cmd:tscigraph}
-{it:yvar} {it:lb} {it:ub} [{it:timevar}]
+{it:yvar} [{it:timevar}]
 {ifin}
-[{cmd:,} {opt by(varname)} {opt citype(string)} {opt overlay} {it:twoway_options}]
-
+[{cmd:,} {opt by(varname)} {opt citype(string)} {opt overlay} {opt level(#)} {it:twoway_options}]
 
 {synoptset 20 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt :{opt by(varname)}}generate panel subgraphs or overlay series for each category of {it:varname}{p_end}
-{synopt :{opt citype(string)}}confidence interval display type: {cmd:rcap} (default) or {cmd:rarea}{p_end}
-{synopt :{opt overlay}}overlay all group series on a single plot axis, using group labels in the legend and excluding CI keys{p_end}
-{synopt :{it:twoway_options}}any options allowed by {help twoway}{p_end}
+{synopt :{opt by(varname)}}separate mean and interval for each category of {it:varname}{p_end}
+{synopt :{opt citype(string)}}interval display: {cmd:rcap} (default) or {cmd:rarea}{p_end}
+{synopt :{opt overlay}}overlay groups on one axis instead of subgraphs; requires {opt by()}{p_end}
+{synopt :{opt level(#)}}confidence level; default is {cmd:level(95)} or as set by {helpb set level}{p_end}
+{synopt :{it:twoway_options}}any options allowed by {help twoway}, including {opt legend()}{p_end}
 {synoptline}
 
 
@@ -30,73 +34,108 @@
 {title:Description}
 
 {pstd}
-{cmd:tscigraph} creates a time series plot combining a line plot of {it:yvar} alongside confidence intervals
-bounded by {it:lb} (lower bound) and {it:ub} (upper bound).
+{cmd:tscigraph} computes the mean of {it:yvar} within each value of {it:timevar} and plots
+that series with a confidence interval at each period. With {opt by()}, one series is
+computed per group.
 
 {pstd}
-If {it:timevar} is not specified, {cmd:tscigraph} automatically uses the time variable set via {helpb tsset}
-or {helpb xtset}. If no time variable is configured, observation indices ({cmd:_n}) are used. Confidence interval
-keys ({it:lb}/{it:ub}) are automatically omitted from the legend.
-
-
-{marker installation}{...}
-{title:Installation}
+The interval is the normal-theory interval for a mean,
+{it:ybar} +/- {it:t} * {it:se}, where {it:se} is the standard error of the mean within the
+period and {it:t} is the two-sided {it:level}% critical value of Student's t on {it:n}-1
+degrees of freedom, {it:n} being the number of non-missing observations in that period.
+This reproduces {helpb ci means} period by period.
 
 {pstd}
-To install {cmd:tscigraph} directly from GitHub in Stata:
+Periods holding a single observation have no interval; they are reported in a note and
+their line segment is still drawn. If no period has more than one observation there is
+nothing to compute and {cmd:tscigraph} exits with an error.
 
-{phang2}{cmd:. net install tscigraph, from("https://raw.githubusercontent.com/emawbgit/tscigraph/main") replace}{p_end}
+{pstd}
+If {it:timevar} is omitted, the time variable set by {helpb tsset} or {helpb xtset} is
+used. The data in memory are not modified: the aggregation runs under {helpb preserve}.
+
+{pstd}
+Interval keys are omitted from the legend. Each group's band takes the plot style of its
+own line, and all bands are drawn before any line, so no series is obscured by another
+group's band.
 
 
 {marker options}{...}
 {title:Options}
 
 {phang}
-{opt by(varname)} specifies that series be generated for each value of {it:varname}. By default, separate panel subgraphs are created.
+{opt by(varname)} computes a separate mean and interval for each level of {it:varname}
+within each period. By default these are drawn as separate subgraphs. Observations with
+missing {it:varname} are excluded. Suboptions of {help by_option:by()} are not supported.
 
 {phang}
-{opt citype(string)} specifies the plot type for confidence intervals. Supported values are:
-{break}{cmd:rcap} - capped spikes (default)
-{break}{cmd:rarea} - shaded range area
+{opt citype(string)} sets the interval plot type:
+{break}{cmd:rcap} - capped spikes (default), suited to few periods
+{break}{cmd:rarea} - shaded band at reduced fill intensity, suited to many periods
 
 {phang}
-{opt overlay} overlays all group/panel series on a single plot axis rather than creating separate subgraphs per group.
-Legend entries display each level or value label of {it:varname} and omit confidence interval keys.
+{opt overlay} places all groups on one axis. Requires {opt by()}.
 
 {phang}
-{it:twoway_options} options passed directly to {helpb twoway}, such as title, axis labels, legend, or graph schemes.
+{opt level(#)} sets the confidence level.
+
+{phang}
+{it:twoway_options} are passed to {help twoway}. A user-specified {opt legend()} replaces
+the default legend rather than colliding with it.
+
+
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+The interval describes the precision of the period mean, not the dispersion of {it:yvar}
+within the period. For a series that already has one observation per period, or for
+bounds produced by a model, a bootstrap, or any other method, build the graph with
+{helpb twoway} directly.
+
+{pstd}
+Plot styles cycle {cmd:p1}-{cmd:p15}. Beyond fifteen groups, colours repeat.
 
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}
-{bf:Example 1: Using native Grunfeld dataset}
+{pstd}{bf:Mean capital stock per year, Grunfeld data}
 
 {phang2}{cmd:. webuse grunfeld, clear}{p_end}
-{phang2}{cmd:. generate lb = invest - 15}{p_end}
-{phang2}{cmd:. generate ub = invest + 15}{p_end}
-{phang2}{cmd:. tscigraph invest lb ub year if company <= 3, by(company)}{p_end}
-{phang2}{cmd:. tscigraph invest lb ub year if company <= 3, by(company) overlay}{p_end}
+{phang2}{cmd:. tscigraph kstock year}{p_end}
+
+{pstd}{bf:Shaded band at the 90% level}
+
+{phang2}{cmd:. tscigraph kstock year, citype(rarea) level(90)}{p_end}
+
+{pstd}{bf:Time variable taken from xtset}
+
+{phang2}{cmd:. xtset company year}{p_end}
+{phang2}{cmd:. tscigraph kstock}{p_end}
+
+{pstd}{bf:Two groups overlaid}
+
+{phang2}{cmd:. generate big = mvalue > 1000}{p_end}
+{phang2}{cmd:. label define big 0 "Small firms" 1 "Large firms"}{p_end}
+{phang2}{cmd:. label values big big}{p_end}
+{phang2}{cmd:. tscigraph kstock year, by(big) overlay citype(rarea)}{p_end}
+
+{pstd}{bf:Subgraph per group}
+
+{phang2}{cmd:. tscigraph kstock year, by(big) title("Capital stock")}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
 
 {pstd}
-{bf:Example 2: Simulated dataset with 5 countries over 40 years of monthly GDP data}
-
-{phang2}{cmd:. clear}{p_end}
-{phang2}{cmd:. set obs 2400}{p_end}
-{phang2}{cmd:. egen country = seq(), block(480)}{p_end}
-{phang2}{cmd:. egen mdate = seq(), f(1) t(480)}{p_end}
-{phang2}{cmd:. replace mdate = ym(1984, 1) + mdate - 1}{p_end}
-{phang2}{cmd:. format mdate %tm}{p_end}
-{phang2}{cmd:. set seed 12345}{p_end}
-{phang2}{cmd:. gen gdp = 100 + country*10 + rnormal(0, 5)}{p_end}
-{phang2}{cmd:. gen lb = gdp - 2.5}{p_end}
-{phang2}{cmd:. gen ub = gdp + 2.5}{p_end}
-{phang2}{cmd:. tscigraph gdp lb ub mdate, by(country) overlay citype(rarea)}{p_end}
+{cmd:tscigraph} stores nothing beyond what {helpb twoway} stores.
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}
-Emanuele Clemente
+Emanuele Clemente{break}
+University of Bari
